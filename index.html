@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestione Parco Mezzi - Tagliandi</title>
+<style>
+  :root { --blu:#2c3e50; --azzurro:#2980b9; --ok:#27ae60; --warn:#e67e22; --bad:#c0392b; --bg:#f4f6f9; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:0; background:var(--bg); color:#2c3e50; }
+  header { background:var(--blu); color:#fff; padding:14px 22px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  header .user { font-size:13px; opacity:.85; }
+  header button { background:rgba(255,255,255,.15); color:#fff; border:none; padding:7px 12px; border-radius:7px; cursor:pointer; font-size:13px; }
+  header button:hover { background:rgba(255,255,255,.28); }
+  .wrap { max-width:1100px; margin:0 auto; padding:22px; }
+  .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+  .toolbar .stats { display:flex; gap:10px; flex:1; flex-wrap:wrap; }
+  .pill { background:#fff; border-radius:10px; padding:10px 16px; box-shadow:0 1px 4px rgba(0,0,0,.06); font-size:13px; }
+  .pill b { font-size:20px; display:block; }
+  .pill.ok b{color:var(--ok);} .pill.warn b{color:var(--warn);} .pill.bad b{color:var(--bad);}
+  .btn { background:var(--azzurro); color:#fff; border:none; padding:11px 16px; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600; }
+  .btn:hover{ background:#216a9c; }
+  .btn.ghost { background:#fff; color:var(--azzurro); border:1px solid #cfe0ee; }
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.07); }
+  th,td { padding:12px 14px; text-align:left; font-size:14px; border-bottom:1px solid #eef1f4; }
+  th { background:#f7f9fb; font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:#7a8794; }
+  tr:last-child td { border-bottom:none; }
+  .badge { display:inline-block; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+  .badge.ok{ background:#e8f8ef; color:var(--ok);} .badge.in_scadenza{ background:#fdf0e3; color:var(--warn);} .badge.scaduto{ background:#fbe9e7; color:var(--bad);} .badge.incompleto{ background:#eceff1; color:#7a8794;}
+  tr.scaduto { background:#fef6f5; } tr.in_scadenza { background:#fffaf3; }
+  .actions button { border:none; background:none; cursor:pointer; font-size:16px; padding:4px 6px; }
+  .km-mancanti { font-weight:700; }
+  .muted { color:#9aa7b2; font-size:12px; }
+  /* Modale */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .overlay.show{ display:flex; }
+  .modal { background:#fff; border-radius:14px; width:480px; max-width:100%; max-height:90vh; overflow:auto; padding:24px; }
+  .modal h2{ margin:0 0 16px; font-size:18px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  label.f { display:block; font-size:12px; font-weight:600; color:#5a6b78; margin:0 0 5px; }
+  .field { margin-bottom:12px; }
+  input.in, textarea.in { width:100%; padding:10px; border:1px solid #d5dbe0; border-radius:8px; font-size:14px; font-family:inherit; }
+  input.in:focus, textarea.in:focus{ outline:none; border-color:var(--azzurro); }
+  .calc { background:#eef6fc; border-radius:8px; padding:10px 12px; font-size:13px; margin:6px 0 14px; color:#216a9c; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:8px; }
+  .empty { text-align:center; padding:50px 20px; color:#9aa7b2; }
+  @media (max-width:680px){ .grid2{ grid-template-columns:1fr; } th.hide,td.hide{ display:none; } }
+</style>
+</head>
+<body>
+<header>
+  <span style="font-size:22px">🚐</span>
+  <h1>Gestione Parco Mezzi</h1>
+  <span class="user" id="userLabel"></span>
+  <button id="btnSync" title="Aggiorna i km dai dati Verizon Connect">🔄 Sync Verizon</button>
+  <button id="btnAlert" title="Invia ora un'email di riepilogo">✉️ Invia alert</button>
+  <button id="btnLogout">Esci</button>
+</header>
+
+<div class="wrap">
+  <div class="toolbar">
+    <div class="stats">
+      <div class="pill ok"><b id="cOk">0</b>OK</div>
+      <div class="pill warn"><b id="cWarn">0</b>In scadenza</div>
+      <div class="pill bad"><b id="cBad">0</b>Scaduti</div>
+    </div>
+    <button class="btn" id="btnAdd">+ Aggiungi mezzo</button>
+  </div>
+
+  <table id="tab">
+    <thead>
+      <tr>
+        <th>Mezzo</th>
+        <th>Km attuali</th>
+        <th class="hide">Ultimo tagliando</th>
+        <th class="hide">Intervallo</th>
+        <th>Prossimo tagliando</th>
+        <th>Stato</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">Nessun mezzo inserito. Clicca <b>+ Aggiungi mezzo</b> per iniziare.</div>
+</div>
+
+<!-- Modale aggiungi/modifica -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">Aggiungi mezzo</h2>
+    <input type="hidden" id="f-id">
+    <div class="grid2">
+      <div class="field"><label class="f">Targa *</label><input class="in" id="f-targa" placeholder="AB123CD"></div>
+      <div class="field"><label class="f">Modello</label><input class="in" id="f-modello" placeholder="Fiat Ducato"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label class="f">Km attuali *</label><input class="in" id="f-kmAttuali" type="number" min="0" placeholder="85000"></div>
+      <div class="field"><label class="f">Km ultimo tagliando *</label><input class="in" id="f-kmUltimo" type="number" min="0" placeholder="80000"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label class="f">Intervallo tagliando (km) *</label><input class="in" id="f-intervallo" type="number" min="0" placeholder="20000"></div>
+      <div class="field"><label class="f">Data ultimo tagliando</label><input class="in" id="f-data" type="date"></div>
+    </div>
+    <div class="field"><label class="f">Note</label><textarea class="in" id="f-note" rows="2" placeholder="Officina, olio usato, ecc."></textarea></div>
+    <div class="calc" id="calc"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="btnCancel">Annulla</button>
+      <button class="btn" id="btnSave">Salva</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let soglia = 1000;
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => Number(n).toLocaleString('it-IT');
+
+async function init() {
+  const me = await (await fetch('/api/me')).json();
+  if (!me.auth) { window.location.href = '/login.html'; return; }
+  soglia = me.soglia || 1000;
+  $('userLabel').textContent = me.nome ? '👤 ' + me.nome : '';
+  await load();
+}
+
+async function load() {
+  const mezzi = await (await fetch('/api/mezzi')).json();
+  const tbody = $('tbody');
+  tbody.innerHTML = '';
+  let cOk=0,cWarn=0,cBad=0;
+  mezzi.sort((a,b)=>a.kmMancanti-b.kmMancanti);
+  mezzi.forEach((m) => {
+    if(m.stato==='scaduto')cBad++; else if(m.stato==='in_scadenza')cWarn++; else if(m.stato==='ok')cOk++;
+    const tr = document.createElement('tr');
+    tr.className = m.stato;
+    const statoTxt = {ok:'OK', in_scadenza:'In scadenza', scaduto:'Scaduto', incompleto:'Dati mancanti'}[m.stato];
+    const mancTxt = m.intervalloKm>0
+      ? (m.kmMancanti<=0 ? `<span class="km-mancanti" style="color:var(--bad)">superato di ${fmt(Math.abs(m.kmMancanti))} km</span>`
+                         : `<span class="km-mancanti">mancano ${fmt(m.kmMancanti)} km</span>`)
+      : '<span class="muted">imposta intervallo</span>';
+    tr.innerHTML = `
+      <td><b>${m.targa||'-'}</b><br><span class="muted">${m.modello||''}</span></td>
+      <td>${fmt(m.kmAttuali)} km</td>
+      <td class="hide">${fmt(m.kmUltimoTagliando)} km${m.dataUltimoTagliando?'<br><span class="muted">'+m.dataUltimoTagliando+'</span>':''}</td>
+      <td class="hide">${m.intervalloKm?fmt(m.intervalloKm)+' km':'-'}</td>
+      <td>${m.intervalloKm?fmt(m.kmProssimo)+' km':'-'}<br>${mancTxt}</td>
+      <td><span class="badge ${m.stato}">${statoTxt}</span></td>
+      <td class="actions" style="white-space:nowrap">
+        <button title="Modifica" data-edit="${m.id}">✏️</button>
+        <button title="Elimina" data-del="${m.id}">🗑️</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  $('cOk').textContent=cOk; $('cWarn').textContent=cWarn; $('cBad').textContent=cBad;
+  $('empty').style.display = mezzi.length ? 'none' : 'block';
+  $('tab').style.display = mezzi.length ? '' : 'none';
+  window._mezzi = mezzi;
+}
+
+// --- Modale ---
+function openModal(m) {
+  $('modalTitle').textContent = m ? 'Modifica mezzo' : 'Aggiungi mezzo';
+  $('f-id').value = m?m.id:'';
+  $('f-targa').value = m?m.targa:'';
+  $('f-modello').value = m?m.modello:'';
+  $('f-kmAttuali').value = m?m.kmAttuali:'';
+  $('f-kmUltimo').value = m?m.kmUltimoTagliando:'';
+  $('f-intervallo').value = m?m.intervalloKm:'';
+  $('f-data').value = m?m.dataUltimoTagliando:'';
+  $('f-note').value = m?m.note:'';
+  updateCalc();
+  $('overlay').classList.add('show');
+}
+function closeModal(){ $('overlay').classList.remove('show'); }
+
+function updateCalc() {
+  const u = Number($('f-kmUltimo').value)||0;
+  const i = Number($('f-intervallo').value)||0;
+  const a = Number($('f-kmAttuali').value)||0;
+  if(i>0){
+    const prossimo = u+i;
+    const manc = prossimo-a;
+    $('calc').innerHTML = `Prossimo tagliando a <b>${fmt(prossimo)} km</b> · ` +
+      (manc<=0 ? `<b style="color:var(--bad)">superato di ${fmt(Math.abs(manc))} km</b>`
+               : `mancano <b>${fmt(manc)} km</b>` + (manc<=soglia?' <b style="color:var(--warn)">(in scadenza)</b>':''));
+  } else { $('calc').textContent = 'Inserisci l\'intervallo in km per calcolare il prossimo tagliando.'; }
+}
+['f-kmUltimo','f-intervallo','f-kmAttuali'].forEach(id=>$(id).addEventListener('input',updateCalc));
+
+async function save() {
+  const id = $('f-id').value;
+  const payload = {
+    targa:$('f-targa').value, modello:$('f-modello').value,
+    kmAttuali:$('f-kmAttuali').value, kmUltimoTagliando:$('f-kmUltimo').value,
+    intervalloKm:$('f-intervallo').value, dataUltimoTagliando:$('f-data').value,
+    note:$('f-note').value
+  };
+  if(!payload.targa.trim()){ alert('Inserisci almeno la targa.'); return; }
+  const url = id?('/api/mezzi/'+id):'/api/mezzi';
+  const method = id?'PUT':'POST';
+  await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  closeModal(); load();
+}
+
+document.addEventListener('click', async (e) => {
+  const ed = e.target.getAttribute && e.target.getAttribute('data-edit');
+  const dl = e.target.getAttribute && e.target.getAttribute('data-del');
+  if(ed){ openModal(window._mezzi.find(x=>x.id==ed)); }
+  if(dl){
+    const m = window._mezzi.find(x=>x.id==dl);
+    if(confirm(`Eliminare il mezzo ${m.targa}?`)){ await fetch('/api/mezzi/'+dl,{method:'DELETE'}); load(); }
+  }
+});
+$('btnAdd').addEventListener('click',()=>openModal(null));
+$('btnCancel').addEventListener('click',closeModal);
+$('btnSave').addEventListener('click',save);
+$('overlay').addEventListener('click',(e)=>{ if(e.target===$('overlay')) closeModal(); });
+$('btnLogout').addEventListener('click',async()=>{ await fetch('/api/logout',{method:'POST'}); window.location.href='/login.html'; });
+$('btnSync').addEventListener('click',async()=>{
+  $('btnSync').disabled=true;
+  const r = await (await fetch('/api/sync-verizon',{method:'POST'})).json();
+  $('btnSync').disabled=false;
+  if(r.ok){ alert(`Km aggiornati da Verizon: ${r.aggiornati} mezzo/i.` + (r.nonTrovati&&r.nonTrovati.length?`\nTarghe Verizon senza corrispondenza: ${r.nonTrovati.join(', ')}`:'')); load(); }
+  else alert('Sync non eseguito: '+(r.reason||r.error||'verifica le credenziali Verizon nelle impostazioni del server.'));
+});
+$('btnAlert').addEventListener('click',async()=>{
+  $('btnAlert').disabled=true;
+  const r = await (await fetch('/api/invia-alert',{method:'POST'})).json();
+  $('btnAlert').disabled=false;
+  if(r.sent) alert(`Email inviata: ${r.count} mezzo/i in scadenza.`);
+  else alert('Email non inviata: '+(r.reason||r.error||'configura prima SMTP nelle impostazioni del server.'));
+});
+
+init();
+</script>
+</body>
+</html>

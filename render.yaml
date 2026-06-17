@@ -1,0 +1,50 @@
+# Configurazione per il deploy su Render.com
+# Render legge questo file e crea automaticamente il servizio web + disco dati.
+services:
+  - type: web
+    name: parco-mezzi
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    disk:
+      name: dati
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: TZ
+        value: Europe/Rome
+      - key: APP_PASSWORD
+        sync: false        # da impostare nella dashboard Render
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SOGLIA_KM
+        value: "1000"
+      - key: CRON
+        value: "0 8 * * *"
+      # Email (impostare nella dashboard quando pronti)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: ALERT_TO
+        sync: false
+      # Verizon (impostare quando arrivano le credenziali)
+      - key: VERIZON_APP_ID
+        sync: false
+      - key: VERIZON_USER
+        sync: false
+      - key: VERIZON_PASS
+        sync: false
+      - key: VERIZON_BASE_URL
+        sync: false

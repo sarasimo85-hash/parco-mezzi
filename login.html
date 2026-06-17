@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accesso - Gestione Parco Mezzi</title>
+<style>
+  :root { --blu:#2c3e50; --azzurro:#2980b9; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0;
+         min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:linear-gradient(135deg,#2c3e50,#2980b9); color:#333; }
+  .card { background:#fff; padding:36px 32px; border-radius:14px; width:340px;
+          box-shadow:0 12px 40px rgba(0,0,0,.25); }
+  h1 { font-size:20px; margin:0 0 4px; color:var(--blu); }
+  p.sub { margin:0 0 22px; color:#888; font-size:13px; }
+  label { display:block; font-size:13px; font-weight:600; margin:14px 0 5px; color:#555; }
+  input { width:100%; padding:11px 12px; border:1px solid #d5dbe0; border-radius:8px; font-size:15px; }
+  input:focus { outline:none; border-color:var(--azzurro); }
+  button { width:100%; margin-top:22px; padding:12px; background:var(--azzurro); color:#fff;
+           border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; }
+  button:hover { background:#216a9c; }
+  .err { color:#c0392b; font-size:13px; margin-top:14px; min-height:18px; text-align:center; }
+  .logo { font-size:34px; text-align:center; margin-bottom:8px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🚐</div>
+    <h1>Gestione Parco Mezzi</h1>
+    <p class="sub">Tagliandi e scadenze</p>
+    <form id="form">
+      <label for="nome">Il tuo nome</label>
+      <input id="nome" placeholder="Es. Mario Rossi" autocomplete="name">
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="Password aziendale" autocomplete="current-password">
+      <button type="submit">Entra</button>
+      <div class="err" id="err"></div>
+    </form>
+  </div>
+<script>
+  const form = document.getElementById('form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    document.getElementById('err').textContent = '';
+    const password = document.getElementById('password').value;
+    const nome = document.getElementById('nome').value;
+    const r = await fetch('/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ password, nome })
+    });
+    if (r.ok) { window.location.href = '/'; }
+    else { document.getElementById('err').textContent = 'Password errata, riprova.'; }
+  });
+</script>
+</body>
+</html>
