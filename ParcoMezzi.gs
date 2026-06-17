@@ -7,83 +7,153 @@ var VEICOLI = [["AB78502", "CTC (CARRELLONE) SPA SRT36G", "CAMION PIANALE", "Ann
 function creaParcoMezzi() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName("Parco Mezzi");
-  if (!sh) { sh = ss.insertSheet("Parco Mezzi"); } else { sh.clear(); sh.clearConditionalFormatRules(); }
-  var headers = ["Targa","Mezzo","Tipo","Km attuali","Km ultimo tagliando","Intervallo km","Prossimo tagliando (km)","Km mancanti","Stato","Data ultimo tagliando","Note"];
-  var values = [headers];
-  for (var i = 0; i < VEICOLI.length; i++) {
-    var r = i + 2;
-    var v = VEICOLI[i];
-    values.push([ v[0], v[1], v[2], "", "", "", "", "", "", "", v[3] ]);
-  }
-  sh.getRange(1, 1, values.length, headers.length).setValues(values);
-  // formule (sintassi italiana con ;)
-  var n = VEICOLI.length;
-  var g=[], h=[], st=[];
+  if (!sh) { sh = ss.insertSheet("Parco Mezzi"); } else { if (sh.getFilter()) sh.getFilter().remove(); sh.clear(); sh.clearConditionalFormatRules(); }
+  var headers = ["Codice interno","Targa","Mezzo","Tipo","Km attuali","Km ultimo tagliando","Intervallo km","Prossimo tagliando (km)","Km mancanti","Stato","Data ultimo tagliando","Note"];
+  var rowsOut = [headers];
+  for (var i = 0; i < VEICOLI.length; i++) { var v = VEICOLI[i]; rowsOut.push(["", v[0], v[1], v[2], "", "", "", "", "", "", "", v[3]]); }
+  sh.getRange(1, 1, rowsOut.length, headers.length).setValues(rowsOut);
+  var n = VEICOLI.length, g=[], h=[], st=[];
   for (var k = 0; k < n; k++) {
-    var rr = k + 2;
-    g.push(['=SE(O(E'+rr+'="";F'+rr+'="");"";E'+rr+'+F'+rr+')']);
-    h.push(['=SE(O(G'+rr+'="";D'+rr+'="");"";G'+rr+'-D'+rr+')']);
-    st.push(['=SE(O(D'+rr+'="";E'+rr+'="";F'+rr+'="");"DATI MANCANTI";SE(H'+rr+'<=0;"SCADUTO";SE(H'+rr+'<='+SOGLIA+';"IN SCADENZA";"OK")))']);
+    var r = k + 2;
+    g.push(['=IF(OR(F'+r+'="";G'+r+'="");"";F'+r+'+G'+r+')']);          // H prossimo = F+G
+    h.push(['=IF(OR(H'+r+'="";E'+r+'="");"";H'+r+'-E'+r+')']);          // I mancanti = H-E
+    st.push(['=IF(OR(E'+r+'="";F'+r+'="";G'+r+'="");"DATI MANCANTI";IF(I'+r+'<=0;"SCADUTO";IF(I'+r+'<='+SOGLIA+';"IN SCADENZA";"OK")))']);
   }
-  sh.getRange(2,7,n,1).setFormulas(g);
-  sh.getRange(2,8,n,1).setFormulas(h);
-  sh.getRange(2,9,n,1).setFormulas(st);
-  var hdr = sh.getRange(1, 1, 1, headers.length);
-  hdr.setFontWeight("bold").setFontColor("#ffffff").setBackground("#2c3e50").setHorizontalAlignment("center").setWrap(true);
-  sh.setFrozenRows(1);
-  sh.getRange(2, 4, n, 5).setNumberFormat("#,##0");
-  sh.getRange(2, 8, n, 1).setNumberFormat("#,##0");
-  var widths = [110,230,260,95,130,110,150,110,130,140,320];
+  sh.getRange(2, 8, n, 1).setFormulas(g);   // H
+  sh.getRange(2, 9, n, 1).setFormulas(h);   // I
+  sh.getRange(2, 10, n, 1).setFormulas(st); // J
+  sh.getRange(1, 1, 1, headers.length).setFontWeight("bold").setFontColor("#ffffff").setBackground("#2c3e50").setHorizontalAlignment("center").setWrap(true);
+  sh.setFrozenRows(1); sh.setFrozenColumns(2);
+  sh.getRange(2, 5, n, 5).setNumberFormat("#,##0"); // E-I
+  var widths = [120,110,220,250,95,130,110,150,110,130,140,300];
   for (var c = 0; c < widths.length; c++) sh.setColumnWidth(c + 1, widths[c]);
-  var last = n + 1;
-  var rng = sh.getRange("A2:K" + last);
+  var last = n + 1; var rng = sh.getRange("A2:L" + last);
   var rules = [];
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$I2="SCADUTO"').setBackground("#FBE9E7").setRanges([rng]).build());
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$I2="IN SCADENZA"').setBackground("#FDF0E3").setRanges([rng]).build());
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$I2="OK"').setBackground("#E8F8EF").setRanges([rng]).build());
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$I2="DATI MANCANTI"').setBackground("#ECEFF1").setRanges([rng]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$J2="SCADUTO"').setBackground("#FBE9E7").setRanges([rng]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$J2="IN SCADENZA"').setBackground("#FDF0E3").setRanges([rng]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$J2="OK"').setBackground("#E8F8EF").setRanges([rng]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$J2="DATI MANCANTI"').setBackground("#ECEFF1").setRanges([rng]).build());
   sh.setConditionalFormatRules(rules);
-  var ist = ss.getSheetByName("Istruzioni");
-  if (!ist) ist = ss.insertSheet("Istruzioni");
-  ist.clear();
+  sh.getRange(1, 1, last, headers.length).createFilter(); // filtro su tutte le intestazioni (incl. Tipo)
+  var ist = ss.getSheetByName("Istruzioni"); if (!ist) ist = ss.insertSheet("Istruzioni"); ist.clear();
   ist.getRange("A1").setValue("ISTRUZIONI - Gestione Parco Mezzi").setFontWeight("bold").setFontSize(14);
   var note = [
-    ["1) Per ogni mezzo compila: Km attuali, Km ultimo tagliando, Intervallo km."],
-    ["2) Il foglio calcola da solo Prossimo tagliando e Km mancanti."],
-    ["3) Colore riga: verde = OK, arancione = in scadenza (meno di "+SOGLIA+" km), rosso = scaduto, grigio = dati mancanti."],
-    ["4) Ogni giorno arriva un'email con i mezzi in scadenza/scaduti."],
-    ["5) Per condividere coi colleghi: pulsante Condividi in alto a destra."]
+    ["1) Colonna A 'Codice interno': compila col tuo codice mezzo (libero)."],
+    ["2) Per ogni mezzo compila: Km attuali, Km ultimo tagliando, Intervallo km."],
+    ["3) Il foglio calcola da solo Prossimo tagliando, Km mancanti e Stato (colori)."],
+    ["4) FILTRARE PER TIPO: clicca l'icona a imbuto nell'intestazione 'Tipo' e spunta i tipi voluti."],
+    ["5) STAMPARE: menu File > Stampa (o Ctrl+P). Il foglio e' gia' impostato in orizzontale, adattato alla larghezza."],
+    ["6) Ogni giorno alle 8 arriva un'email con i tagliandi da fare."]
   ];
-  ist.getRange(3, 1, note.length, 1).setValues(note);
-  ist.setColumnWidth(1, 720);
+  ist.getRange(3, 1, note.length, 1).setValues(note); ist.setColumnWidth(1, 760);
   ss.setActiveSheet(sh);
 }
 
 function controllaTagliandi() {
-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Parco Mezzi");
-  if (!sh) return;
-  var rows = sh.getDataRange().getValues();
-  var scad = [];
-  for (var i = 1; i < rows.length; i++) {
-    var s = rows[i][8];
-    if (s === "SCADUTO" || s === "IN SCADENZA") scad.push(rows[i]);
-  }
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Parco Mezzi"); if (!sh) return;
+  var rows = sh.getDataRange().getValues(); var scad = [];
+  for (var i = 1; i < rows.length; i++) { var s = rows[i][9]; if (s === "SCADUTO" || s === "IN SCADENZA") scad.push(rows[i]); }
   if (!scad.length) return;
   var html = '<div style="font-family:Arial"><h2>Tagliandi da fare</h2><table border="1" cellpadding="6" style="border-collapse:collapse">';
-  html += '<tr style="background:#f0f0f0"><th>Targa</th><th>Mezzo</th><th>Km attuali</th><th>Prossimo tagliando</th><th>Stato</th></tr>';
-  for (var j = 0; j < scad.length; j++) {
-    var v = scad[j];
-    var col = v[8] === "SCADUTO" ? "#c0392b" : "#e67e22";
-    html += '<tr><td><b>'+v[0]+'</b></td><td>'+v[1]+'</td><td>'+v[3]+'</td><td>'+v[6]+'</td><td style="color:'+col+';font-weight:bold">'+v[8]+'</td></tr>';
-  }
+  html += '<tr style="background:#f0f0f0"><th>Codice</th><th>Targa</th><th>Mezzo</th><th>Km attuali</th><th>Prossimo tagliando</th><th>Stato</th></tr>';
+  for (var j = 0; j < scad.length; j++) { var v = scad[j]; var col = v[9] === "SCADUTO" ? "#c0392b" : "#e67e22";
+    html += '<tr><td>'+(v[0]||"")+'</td><td><b>'+v[1]+'</b></td><td>'+v[2]+'</td><td>'+v[4]+'</td><td>'+v[7]+'</td><td style="color:'+col+';font-weight:bold">'+v[9]+'</td></tr>'; }
   html += '</table></div>';
   MailApp.sendEmail({ to: EMAIL, subject: "[Parco Mezzi] " + scad.length + " tagliando/i da fare", htmlBody: html });
 }
 
 function attivaEmailGiornaliera() {
-  var trigs = ScriptApp.getProjectTriggers();
-  for (var i = 0; i < trigs.length; i++) {
-    if (trigs[i].getHandlerFunction() === "controllaTagliandi") ScriptApp.deleteTrigger(trigs[i]);
-  }
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === "controllaTagliandi") ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger("controllaTagliandi").timeBased().everyDays(1).atHour(8).create();
+}
+
+
+// ===== Verizon Connect - sincronizzazione km (Reveal REST API, EU) =====
+// Credenziali da impostare in: Impostazioni progetto > Proprieta script
+//   VZ_APPID  = App ID della tua app (es. fleetmatics-p-eu-....)
+//   VZ_USER   = utente di integrazione (per il token)
+//   VZ_PASS   = password utente di integrazione  (SEGRETA)
+//   VZ_KM_MULT (opz.) = 1 se l'odometro e' in km; 0.001 se in metri; 1.60934 se in miglia
+var VZ_BASE = "https://fim.api.eu.fleetmatics.com";
+
+function vzP_(k){ return PropertiesService.getScriptProperties().getProperty(k); }
+
+function vzToken_() {
+  var user = vzP_("VZ_USER"), pass = vzP_("VZ_PASS");
+  if (!user || !pass) throw new Error("Imposta VZ_USER e VZ_PASS nelle Proprieta script.");
+  var res = UrlFetchApp.fetch(VZ_BASE + "/token", {
+    method: "get",
+    headers: { Authorization: "Basic " + Utilities.base64Encode(user + ":" + pass) },
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() !== 200) throw new Error("Token HTTP " + res.getResponseCode() + ": " + res.getContentText());
+  return res.getContentText().trim().replace(/^"|"$/g, "");
+}
+
+function vzHeaders_(token) {
+  var appid = vzP_("VZ_APPID");
+  if (!appid) throw new Error("Imposta VZ_APPID nelle Proprieta script.");
+  return {
+    Authorization: 'Atmosphere atmosphere_app_id="' + appid + '", Bearer ' + token,
+    Accept: "application/json",
+    "Content-Type": "application/json"
+  };
+}
+
+function vzVehicles_(token) {
+  var res = UrlFetchApp.fetch(VZ_BASE + "/cmd/v1/vehicles", { method: "get", headers: vzHeaders_(token), muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error("Vehicles HTTP " + res.getResponseCode() + ": " + res.getContentText());
+  return JSON.parse(res.getContentText());
+}
+
+function vzOdometers_(token, numbers) {
+  var out = {};
+  for (var i = 0; i < numbers.length; i += 50) {
+    var chunk = numbers.slice(i, i + 50);
+    var res = UrlFetchApp.fetch(VZ_BASE + "/rad/v1/vehicles/statuses", {
+      method: "post", headers: vzHeaders_(token), payload: JSON.stringify(chunk), muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) { Logger.log("statuses HTTP " + res.getResponseCode() + ": " + res.getContentText()); continue; }
+    var arr = JSON.parse(res.getContentText());
+    arr.forEach(function (r) {
+      var num = r.VehicleNumber;
+      var val = r.ContentResource && r.ContentResource.Value;
+      if (num && val && val.CurrentOdometer != null) out[num] = val.CurrentOdometer;
+    });
+  }
+  return out;
+}
+
+function vzNorm_(s) { return String(s || "").toUpperCase().replace(/\s+/g, ""); }
+
+function sincronizzaVerizon() {
+  var mult = Number(vzP_("VZ_KM_MULT")) || 1;
+  var token = vzToken_();
+  var veicoli = vzVehicles_(token);
+  var perTarga = {}, numbers = [];
+  veicoli.forEach(function (v) {
+    var num = v.Number || v.VehicleNumber;
+    var targa = v.RegistrationNumber || v.Registration || v.LicensePlate || "";
+    if (num) { numbers.push(num); if (targa) perTarga[vzNorm_(targa)] = num; }
+  });
+  var odo = vzOdometers_(token, numbers);
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Parco Mezzi");
+  var data = sh.getDataRange().getValues();
+  var agg = 0, nonTrovati = [];
+  for (var r = 1; r < data.length; r++) {
+    var t = vzNorm_(data[r][1]);
+    var num = perTarga[t];
+    if (num && odo[num] != null) { sh.getRange(r + 1, 5).setValue(Math.round(odo[num] * mult)); agg++; }
+    else if (t) nonTrovati.push(data[r][0]);
+  }
+  Logger.log("Verizon: km aggiornati su " + agg + " mezzi; senza corrispondenza " + nonTrovati.length);
+  return { aggiornati: agg, nonTrovati: nonTrovati };
+}
+
+// Esegui UNA volta per attivare la sincronizzazione automatica ogni notte (ore 3)
+function attivaSyncVerizonNotturno() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === "sincronizzaVerizon") ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger("sincronizzaVerizon").timeBased().everyDays(1).atHour(3).create();
 }
